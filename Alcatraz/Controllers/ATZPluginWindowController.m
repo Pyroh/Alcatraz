@@ -37,7 +37,6 @@
 #import "ATZFillableButton.h"
 #import "ATZPackageTableViewDelegate.h"
 
-static NSString *const ALL_ITEMS_ID = @"AllItemsToolbarItem";
 static NSString *const CLASS_PREDICATE_FORMAT = @"(self isKindOfClass: %@)";
 static NSString *const SEARCH_PREDICATE_FORMAT = @"(name contains[cd] %@ OR summary contains[cd] %@)";
 static NSString *const INSTALLED_PREDICATE_FORMAT = @"(installed == YES)";
@@ -112,7 +111,7 @@ typedef NS_ENUM(NSInteger, ATZFilterSegment) {
 
 - (IBAction)displayScreenshotPressed:(NSButton *)sender {
     ATZPackage *package = [self.tableViewDelegate tableView:self.tableView objectValueForTableColumn:0 row:[self.tableView rowForView:sender]];
-    [self displayScreenshotWithPath:package.screenshotPath withTitle:package.name];
+    [self displayScreenshotForPackage:package];
 }
 
 - (IBAction)openPackageWebsitePressed:(NSButton *)sender {
@@ -183,7 +182,7 @@ typedef NS_ENUM(NSInteger, ATZFilterSegment) {
     if (!package.isInstalled) return;
 
     NSOperation *updateOperation = [NSBlockOperation blockOperationWithBlock:^{
-        [package updateWithProgress:^(NSString *proggressMessage, CGFloat progress){}
+        [package updateWithProgress:^(NSString *progressMessage, CGFloat progress){}
                                 completion:^(NSError *failure){}];
     }];
     [updateOperation addDependency:[[NSOperationQueue mainQueue] operations].lastObject];
@@ -249,14 +248,13 @@ BOOL hasPressedCommandF(NSEvent *event) {
     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:address]];
 }
 
-- (void)displayScreenshotWithPath:(NSString *)screenshotPath withTitle:(NSString *)title {
+- (void)displayScreenshotForPackage:(ATZPackage *)package {
     
     [self.previewPanel.animator setAlphaValue:0.f];
-    self.previewPanel.title = title;
-    [self retrieveImageViewForScreenshot:screenshotPath
-                                progress:^(CGFloat progress) {}
-                              completion:^(NSImage *image) {
-        [self displayImage:image withTitle:title];
+    self.previewPanel.title = package.name;
+    
+    [self.tableViewDelegate fetchAndCacheImageForPackage:package progress:NULL completion:^(NSImage *image) {
+        [self displayImage:image withTitle:package.name];
     }];
 }
 
@@ -273,21 +271,6 @@ BOOL hasPressedCommandF(NSEvent *event) {
 
     [self.previewPanel makeKeyAndOrderFront:self];
     [self.previewPanel.animator setAlphaValue:1.f];
-}
-
-- (void)retrieveImageViewForScreenshot:(NSString *)screenshotPath progress:(void (^)(CGFloat))downloadProgress completion:(void (^)(NSImage *))completion {
-    
-    ATZDownloader *downloader = [ATZDownloader new];
-    [downloader downloadFileFromPath:screenshotPath
-                            progress:^(CGFloat progress) {
-                                downloadProgress(progress);
-                            }
-                          completion:^(NSData *responseData, NSError *error) {
-                              
-                              NSImage *image = [[NSImage alloc] initWithData:responseData];
-                              completion(image);
-                          }];
-    
 }
 
 - (void)addVersionToWindow {
